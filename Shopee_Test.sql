@@ -97,6 +97,45 @@ ORDER BY
 
 #Q3: Find out top 10 items by orders per earch seller segment by month, together with average selling price/item, min price, max price, and orders and GMV coverage
 
+WITH AVG_Daily_Orders AS (
+    SELECT
+          shop_id,
+          COUNT(DISTINCT order_id)/COUNT(DISTINCT DATE(create_datetime)) AS avg_daily_orders
+    FROM 
+          order_item_mart
+    GROUP BY 
+          shop_id;)
+, Seller_segment AS(
+    SELECT
+         shop_id,
+         CASE WHEN avg_daily_orders > 20 THEN "Short Tail"
+              WHEN avg_daily_orders BETWEEN 10 AND 20 THEN "Mid Tail"
+              ELSE "Long Tail"
+         END AS seller_segment
+    FROM 
+        AVG_Daily_Orders;)
+
+SELECT
+    ss.seller_segment,
+    DATE_TRUNC('month', oi.create_datetime) AS month,
+    oi.item_id,
+    AVG(oi.gmv_usd/oi.item_amount) AS avg_selling_price,
+    MIN(oi.gmv_usd/oi.item_amount) AS min_selling_price,
+    MAX(oi.gmv_usd/oi.item_amount) AS max_selling_price,
+    COUNT(oi.order_id) AS total_order,
+    SUM(oi.gmv_usd) AS GMV
+FROM
+    order_item_mart AS oi
+JOIN 
+    seller_segment AS ss ON oi.shop_id = ss.shop_id
+WHERE
+    is_net_order = "1"
+GROUP BY
+    ss.seller_segment, month, oi.item_id
+ORDER BY
+    ss.seller_segment, month, total_order DESC
+LIMIT 10;
+    
 
 
 
